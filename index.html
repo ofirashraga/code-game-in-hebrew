@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משחק ניחוש הקוד</title>
+    <title>משחק ניחוש הקוד - עם רמות קושי</title>
     <style>
         * {
             margin: 0;
@@ -43,6 +43,45 @@
             margin-bottom: 20px;
             font-size: 0.9em;
             line-height: 1.5;
+        }
+
+        .difficulty-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .difficulty-btn {
+            padding: 12px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+
+        .difficulty-btn:hover {
+            background: #f0f0ff;
+        }
+
+        .difficulty-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .difficulty-info {
+            background: #fff3cd;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 4px solid #ffc107;
+            text-align: center;
+            font-size: 0.9em;
+            color: #856404;
         }
 
         .current-guess {
@@ -91,6 +130,16 @@
         .palette-color:hover {
             transform: scale(1.15);
             border-color: #333;
+        }
+
+        .palette-color.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .palette-color.disabled:hover {
+            transform: none;
+            border-color: transparent;
         }
 
         .submit-btn {
@@ -258,12 +307,44 @@
             margin-bottom: 15px;
             font-size: 1.1em;
         }
+
+        .level-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .level-badge.easy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .level-badge.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .level-badge.hard {
+            background: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
     <div class="game-container">
         <h1>🎯 משחק ניחוש הקוד</h1>
-        <p class="instructions">נחש את הקוד הסודי של 3 צבעים תוך 10 ניסיונות!</p>
+        <p class="instructions">בחר רמת קושי ונחש את הקוד הסודי!</p>
+
+        <div class="difficulty-selector">
+            <button class="difficulty-btn" data-level="easy">קל 🟢</button>
+            <button class="difficulty-btn active" data-level="medium">בינוני 🟡</button>
+            <button class="difficulty-btn" data-level="hard">קשה 🔴</button>
+        </div>
+
+        <div class="difficulty-info" id="difficultyInfo"></div>
 
         <div class="info-box">
             <h3>הסבר משוב:</h3>
@@ -278,11 +359,7 @@
 
         <div class="attempts-left" id="attemptsLeft">נותרו 10 ניסיונות</div>
 
-        <div class="current-guess" id="currentGuess">
-            <div class="color-circle" data-position="0"></div>
-            <div class="color-circle" data-position="1"></div>
-            <div class="color-circle" data-position="2"></div>
-        </div>
+        <div class="current-guess" id="currentGuess"></div>
 
         <div class="color-palette" id="colorPalette"></div>
 
@@ -294,42 +371,107 @@
     </div>
 
     <script>
-        const COLORS = [
+        const ALL_COLORS = [
             { name: 'אדום', value: '#e74c3c' },
             { name: 'כחול', value: '#3498db' },
             { name: 'ירוק', value: '#2ecc71' },
             { name: 'צהוב', value: '#f1c40f' },
-            { name: 'סגול', value: '#9b59b6' }
+            { name: 'סגול', value: '#9b59b6' },
+            { name: 'כתום', value: '#e67e22' }
         ];
 
+        const DIFFICULTY_SETTINGS = {
+            easy: {
+                name: 'קל',
+                badge: 'easy',
+                codeLength: 3,
+                colorCount: 5,
+                allowRepeats: false,
+                description: '3 מקומות, 5 צבעים - צבע לא יכול לחזור על עצמו מספר פעמים באותו קוד'
+            },
+            medium: {
+                name: 'בינוני',
+                badge: 'medium',
+                codeLength: 3,
+                colorCount: 5,
+                allowRepeats: true,
+                description: '3 מקומות, 5 צבעים - צבע יכול לחזור על עצמו מספר פעמים באותו קוד'
+            },
+            hard: {
+                name: 'קשה',
+                badge: 'hard',
+                codeLength: 4,
+                colorCount: 6,
+                allowRepeats: true,
+                description: '4 מקומות, 6 צבעים - צבע יכול לחזור על עצמו מספר פעמים באותו קוד'
+            }
+        };
+
+        let currentDifficulty = 'medium';
         let secretCode = [];
-        let currentGuess = [null, null, null];
+        let currentGuess = [];
         let attempts = [];
         let maxAttempts = 10;
         let gameOver = false;
         let selectedPosition = null;
+        let availableColors = [];
 
-        function initGame() {
+        function initGame(changeDifficulty = false) {
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
+            availableColors = ALL_COLORS.slice(0, settings.colorCount);
+            
             secretCode = generateSecretCode();
-            currentGuess = [null, null, null];
+            currentGuess = new Array(settings.codeLength).fill(null);
             attempts = [];
             gameOver = false;
             selectedPosition = null;
             
             document.getElementById('history').innerHTML = '';
             document.getElementById('gameOverMessage').innerHTML = '';
+            updateDifficultyInfo();
             updateAttemptsLeft();
             renderColorPalette();
             renderCurrentGuess();
             updateSubmitButton();
+
+            if (changeDifficulty) {
+                updateDifficultyButtons();
+            }
+        }
+
+        function updateDifficultyInfo() {
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
+            const info = document.getElementById('difficultyInfo');
+            info.innerHTML = `<span class="level-badge ${settings.badge}">${settings.name}</span> ${settings.description}`;
+        }
+
+        function updateDifficultyButtons() {
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.level === currentDifficulty) {
+                    btn.classList.add('active');
+                }
+            });
         }
 
         function generateSecretCode() {
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
             const code = [];
-            for (let i = 0; i < 3; i++) {
-                const randomIndex = Math.floor(Math.random() * COLORS.length);
-                code.push(COLORS[randomIndex].value);
+            const availableColorsCopy = [...availableColors];
+            
+            for (let i = 0; i < settings.codeLength; i++) {
+                if (settings.allowRepeats) {
+                    // עם חזרות - בחר אקראית מכל הצבעים
+                    const randomIndex = Math.floor(Math.random() * availableColors.length);
+                    code.push(availableColors[randomIndex].value);
+                } else {
+                    // בלי חזרות - בחר ומחק מהרשימה
+                    const randomIndex = Math.floor(Math.random() * availableColorsCopy.length);
+                    code.push(availableColorsCopy[randomIndex].value);
+                    availableColorsCopy.splice(randomIndex, 1);
+                }
             }
+            
             console.log('Secret code:', code);
             return code;
         }
@@ -337,57 +479,88 @@
         function renderColorPalette() {
             const palette = document.getElementById('colorPalette');
             palette.innerHTML = '';
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
             
-            COLORS.forEach(color => {
+            availableColors.forEach(color => {
                 const div = document.createElement('div');
                 div.className = 'palette-color';
                 div.style.backgroundColor = color.value;
                 div.title = color.name;
-                div.addEventListener('click', () => selectColor(color.value));
+                
+                // במצב קל - השבת צבע שכבר נבחר
+                if (!settings.allowRepeats && currentGuess.includes(color.value)) {
+                    div.classList.add('disabled');
+                } else {
+                    div.addEventListener('click', () => selectColor(color.value));
+                }
+                
                 palette.appendChild(div);
             });
         }
 
         function renderCurrentGuess() {
             const guessDiv = document.getElementById('currentGuess');
-            const circles = guessDiv.querySelectorAll('.color-circle');
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
             
-            circles.forEach((circle, index) => {
-                if (currentGuess[index]) {
-                    circle.style.backgroundColor = currentGuess[index];
+            // עדכן את מספר העיגולים לפי רמת הקושי
+            guessDiv.innerHTML = '';
+            for (let i = 0; i < settings.codeLength; i++) {
+                const circle = document.createElement('div');
+                circle.className = 'color-circle';
+                circle.dataset.position = i;
+                
+                if (currentGuess[i]) {
+                    circle.style.backgroundColor = currentGuess[i];
                     circle.style.borderColor = '#667eea';
                 } else {
                     circle.style.backgroundColor = 'white';
                     circle.style.borderColor = '#ddd';
                 }
                 
-                if (selectedPosition === index) {
+                if (selectedPosition === i) {
                     circle.style.borderColor = '#667eea';
                     circle.style.borderWidth = '4px';
-                } else if (currentGuess[index]) {
+                } else if (currentGuess[i]) {
                     circle.style.borderWidth = '3px';
                 } else {
                     circle.style.borderWidth = '3px';
                 }
-            });
+                
+                circle.addEventListener('click', () => {
+                    if (!gameOver) {
+                        selectedPosition = i;
+                        renderCurrentGuess();
+                    }
+                });
+                
+                guessDiv.appendChild(circle);
+            }
         }
 
         function selectColor(color) {
             if (gameOver) return;
             
-            // Find first empty position or use selected position
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
+            
+            // במצב קל - בדוק אם הצבע כבר נבחר
+            if (!settings.allowRepeats && currentGuess.includes(color)) {
+                return; // אל תאפשר בחירה של צבע שכבר קיים
+            }
+            
+            // מצא עמדה ריקה או השתמש בעמדה הנבחרת
             let position = selectedPosition;
             if (position === null) {
                 position = currentGuess.findIndex(c => c === null);
-                if (position === -1) position = 0; // If all filled, replace first
+                if (position === -1) position = 0;
             }
             
             currentGuess[position] = color;
             
-            // Move to next position
-            selectedPosition = (position + 1) % 3;
+            // עבור לעמדה הבאה
+            selectedPosition = (position + 1) % settings.codeLength;
             
             renderCurrentGuess();
+            renderColorPalette(); // עדכן את הפלטה (במצב קל)
             updateSubmitButton();
         }
 
@@ -408,22 +581,25 @@
             
             addToHistory(currentGuess, feedback);
             
-            // Check win condition
-            if (feedback.exact === 3) {
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
+            
+            // בדוק תנאי ניצחון
+            if (feedback.exact === settings.codeLength) {
                 endGame(true);
                 return;
             }
             
-            // Check lose condition
+            // בדוק תנאי הפסד
             if (attempts.length >= maxAttempts) {
                 endGame(false);
                 return;
             }
             
-            // Reset for next guess
-            currentGuess = [null, null, null];
+            // אפס לניסיון הבא
+            currentGuess = new Array(settings.codeLength).fill(null);
             selectedPosition = null;
             renderCurrentGuess();
+            renderColorPalette();
             updateSubmitButton();
             updateAttemptsLeft();
         }
@@ -433,8 +609,8 @@
             const secretCopy = [...secret];
             const guessCopy = [...guess];
             
-            // First pass: exact matches
-            for (let i = 0; i < 3; i++) {
+            // מעבר ראשון: התאמות מדויקות
+            for (let i = 0; i < guess.length; i++) {
                 if (guessCopy[i] === secretCopy[i]) {
                     feedback.exact++;
                     secretCopy[i] = null;
@@ -442,8 +618,8 @@
                 }
             }
             
-            // Second pass: color matches in wrong position
-            for (let i = 0; i < 3; i++) {
+            // מעבר שני: צבעים נכונים במקום לא נכון
+            for (let i = 0; i < guess.length; i++) {
                 if (guessCopy[i] !== null) {
                     const index = secretCopy.indexOf(guessCopy[i]);
                     if (index !== -1) {
@@ -515,12 +691,13 @@
         function endGame(won) {
             gameOver = true;
             const messageDiv = document.getElementById('gameOverMessage');
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
             
             if (won) {
                 messageDiv.className = 'game-over';
                 messageDiv.innerHTML = `
                     <h2>🎉 כל הכבוד! ניצחת!</h2>
-                    <p>ניחשת את הקוד ב-${attempts.length} ניסיונות!</p>
+                    <p>פתרת את רמת הקושי "${settings.name}" ב-${attempts.length} ניסיונות!</p>
                 `;
             } else {
                 messageDiv.className = 'game-over lost';
@@ -538,19 +715,17 @@
 
         // Event listeners
         document.getElementById('submitBtn').addEventListener('click', submitGuess);
-        document.getElementById('resetBtn').addEventListener('click', initGame);
+        document.getElementById('resetBtn').addEventListener('click', () => initGame(false));
         
-        document.querySelectorAll('.color-circle').forEach((circle, index) => {
-            circle.addEventListener('click', () => {
-                if (!gameOver) {
-                    selectedPosition = index;
-                    renderCurrentGuess();
-                }
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentDifficulty = btn.dataset.level;
+                initGame(true);
             });
         });
 
         // Initialize game
-        initGame();
+        initGame(true);
     </script>
 </body>
 </html>
