@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק ניחוש הקוד</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .instructions {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .current-guess {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .color-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .color-circle:hover {
+            transform: scale(1.1);
+            border-color: #667eea;
+        }
+
+        .color-palette {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .palette-color {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .palette-color:hover {
+            transform: scale(1.15);
+            border-color: #333;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .history {
+            margin-top: 20px;
+        }
+
+        .history-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .attempt-number {
+            font-weight: bold;
+            color: #667eea;
+            min-width: 60px;
+        }
+
+        .guess-circles {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .small-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+        }
+
+        .feedback {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .feedback-symbol {
+            font-size: 20px;
+            display: inline-block;
+            margin: 0 2px;
+        }
+
+        .feedback-symbol.exact {
+            color: #2ecc71;
+        }
+
+        .feedback-symbol.color {
+            color: #f39c12;
+        }
+
+        .feedback-symbol.wrong {
+            color: #e74c3c;
+        }
+
+        .game-over {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            animation: celebrate 0.5s ease-out;
+        }
+
+        .game-over.lost {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        @keyframes celebrate {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .reset-btn {
+            width: 100%;
+            padding: 12px;
+            background: #764ba2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .reset-btn:hover {
+            background: #6a4292;
+            transform: translateY(-2px);
+        }
+
+        .secret-code {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .info-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 4px solid #667eea;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .info-box p {
+            color: #555;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .attempts-left {
+            text-align: center;
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎯 משחק ניחוש הקוד</h1>
+        <p class="instructions">נחש את הקוד הסודי של 3 צבעים תוך 10 ניסיונות!</p>
+
+        <div class="info-box">
+            <h3>הסבר משוב:</h3>
+            <p>
+                ✅ וי ירוק = צבע נכון במקום הנכון<br>
+                🔄 חץ מעגלי = צבע נכון במקום לא נכון<br>
+                ❌ איקס אדום = צבע לא קיים בקוד
+            </p>
+        </div>
+
+        <div id="gameOverMessage"></div>
+
+        <div class="attempts-left" id="attemptsLeft">נותרו 10 ניסיונות</div>
+
+        <div class="current-guess" id="currentGuess">
+            <div class="color-circle" data-position="0"></div>
+            <div class="color-circle" data-position="1"></div>
+            <div class="color-circle" data-position="2"></div>
+        </div>
+
+        <div class="color-palette" id="colorPalette"></div>
+
+        <button class="submit-btn" id="submitBtn" disabled>שלח ניחוש</button>
+
+        <div class="history" id="history"></div>
+
+        <button class="reset-btn" id="resetBtn">משחק חדש</button>
+    </div>
+
+    <script>
+        const COLORS = [
+            { name: 'אדום', value: '#e74c3c' },
+            { name: 'כחול', value: '#3498db' },
+            { name: 'ירוק', value: '#2ecc71' },
+            { name: 'צהוב', value: '#f1c40f' },
+            { name: 'סגול', value: '#9b59b6' }
+        ];
+
+        let secretCode = [];
+        let currentGuess = [null, null, null];
+        let attempts = [];
+        let maxAttempts = 10;
+        let gameOver = false;
+        let selectedPosition = null;
+
+        function initGame() {
+            secretCode = generateSecretCode();
+            currentGuess = [null, null, null];
+            attempts = [];
+            gameOver = false;
+            selectedPosition = null;
+            
+            document.getElementById('history').innerHTML = '';
+            document.getElementById('gameOverMessage').innerHTML = '';
+            updateAttemptsLeft();
+            renderColorPalette();
+            renderCurrentGuess();
+            updateSubmitButton();
+        }
+
+        function generateSecretCode() {
+            const code = [];
+            for (let i = 0; i < 3; i++) {
+                const randomIndex = Math.floor(Math.random() * COLORS.length);
+                code.push(COLORS[randomIndex].value);
+            }
+            console.log('Secret code:', code);
+            return code;
+        }
+
+        function renderColorPalette() {
+            const palette = document.getElementById('colorPalette');
+            palette.innerHTML = '';
+            
+            COLORS.forEach(color => {
+                const div = document.createElement('div');
+                div.className = 'palette-color';
+                div.style.backgroundColor = color.value;
+                div.title = color.name;
+                div.addEventListener('click', () => selectColor(color.value));
+                palette.appendChild(div);
+            });
+        }
+
+        function renderCurrentGuess() {
+            const guessDiv = document.getElementById('currentGuess');
+            const circles = guessDiv.querySelectorAll('.color-circle');
+            
+            circles.forEach((circle, index) => {
+                if (currentGuess[index]) {
+                    circle.style.backgroundColor = currentGuess[index];
+                    circle.style.borderColor = '#667eea';
+                } else {
+                    circle.style.backgroundColor = 'white';
+                    circle.style.borderColor = '#ddd';
+                }
+                
+                if (selectedPosition === index) {
+                    circle.style.borderColor = '#667eea';
+                    circle.style.borderWidth = '4px';
+                } else if (currentGuess[index]) {
+                    circle.style.borderWidth = '3px';
+                } else {
+                    circle.style.borderWidth = '3px';
+                }
+            });
+        }
+
+        function selectColor(color) {
+            if (gameOver) return;
+            
+            // Find first empty position or use selected position
+            let position = selectedPosition;
+            if (position === null) {
+                position = currentGuess.findIndex(c => c === null);
+                if (position === -1) position = 0; // If all filled, replace first
+            }
+            
+            currentGuess[position] = color;
+            
+            // Move to next position
+            selectedPosition = (position + 1) % 3;
+            
+            renderCurrentGuess();
+            updateSubmitButton();
+        }
+
+        function updateSubmitButton() {
+            const btn = document.getElementById('submitBtn');
+            const allFilled = currentGuess.every(c => c !== null);
+            btn.disabled = !allFilled || gameOver;
+        }
+
+        function submitGuess() {
+            if (gameOver || currentGuess.some(c => c === null)) return;
+            
+            const feedback = getFeedback(currentGuess, secretCode);
+            attempts.push({
+                guess: [...currentGuess],
+                feedback: feedback
+            });
+            
+            addToHistory(currentGuess, feedback);
+            
+            // Check win condition
+            if (feedback.exact === 3) {
+                endGame(true);
+                return;
+            }
+            
+            // Check lose condition
+            if (attempts.length >= maxAttempts) {
+                endGame(false);
+                return;
+            }
+            
+            // Reset for next guess
+            currentGuess = [null, null, null];
+            selectedPosition = null;
+            renderCurrentGuess();
+            updateSubmitButton();
+            updateAttemptsLeft();
+        }
+
+        function getFeedback(guess, secret) {
+            const feedback = { exact: 0, color: 0, wrong: 0 };
+            const secretCopy = [...secret];
+            const guessCopy = [...guess];
+            
+            // First pass: exact matches
+            for (let i = 0; i < 3; i++) {
+                if (guessCopy[i] === secretCopy[i]) {
+                    feedback.exact++;
+                    secretCopy[i] = null;
+                    guessCopy[i] = null;
+                }
+            }
+            
+            // Second pass: color matches in wrong position
+            for (let i = 0; i < 3; i++) {
+                if (guessCopy[i] !== null) {
+                    const index = secretCopy.indexOf(guessCopy[i]);
+                    if (index !== -1) {
+                        feedback.color++;
+                        secretCopy[index] = null;
+                    } else {
+                        feedback.wrong++;
+                    }
+                }
+            }
+            
+            return feedback;
+        }
+
+        function addToHistory(guess, feedback) {
+            const history = document.getElementById('history');
+            const row = document.createElement('div');
+            row.className = 'history-row';
+            
+            const attemptNum = document.createElement('div');
+            attemptNum.className = 'attempt-number';
+            attemptNum.textContent = `ניסיון ${attempts.length}:`;
+            row.appendChild(attemptNum);
+            
+            const guessCircles = document.createElement('div');
+            guessCircles.className = 'guess-circles';
+            guess.forEach(color => {
+                const circle = document.createElement('div');
+                circle.className = 'small-circle';
+                circle.style.backgroundColor = color;
+                guessCircles.appendChild(circle);
+            });
+            row.appendChild(guessCircles);
+            
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.className = 'feedback';
+            
+            for (let i = 0; i < feedback.exact; i++) {
+                const symbol = document.createElement('span');
+                symbol.className = 'feedback-symbol exact';
+                symbol.textContent = '✅';
+                symbol.title = 'צבע נכון במקום נכון';
+                feedbackDiv.appendChild(symbol);
+            }
+            for (let i = 0; i < feedback.color; i++) {
+                const symbol = document.createElement('span');
+                symbol.className = 'feedback-symbol color';
+                symbol.textContent = '🔄';
+                symbol.title = 'צבע נכון במקום לא נכון';
+                feedbackDiv.appendChild(symbol);
+            }
+            for (let i = 0; i < feedback.wrong; i++) {
+                const symbol = document.createElement('span');
+                symbol.className = 'feedback-symbol wrong';
+                symbol.textContent = '❌';
+                symbol.title = 'צבע לא קיים';
+                feedbackDiv.appendChild(symbol);
+            }
+            
+            row.appendChild(feedbackDiv);
+            history.insertBefore(row, history.firstChild);
+        }
+
+        function updateAttemptsLeft() {
+            const left = maxAttempts - attempts.length;
+            document.getElementById('attemptsLeft').textContent = `נותרו ${left} ניסיונות`;
+        }
+
+        function endGame(won) {
+            gameOver = true;
+            const messageDiv = document.getElementById('gameOverMessage');
+            
+            if (won) {
+                messageDiv.className = 'game-over';
+                messageDiv.innerHTML = `
+                    <h2>🎉 כל הכבוד! ניצחת!</h2>
+                    <p>ניחשת את הקוד ב-${attempts.length} ניסיונות!</p>
+                `;
+            } else {
+                messageDiv.className = 'game-over lost';
+                messageDiv.innerHTML = `
+                    <h2>😔 המשחק נגמר</h2>
+                    <p>הקוד הסודי היה:</p>
+                    <div class="secret-code">
+                        ${secretCode.map(color => `<div class="small-circle" style="background-color: ${color}"></div>`).join('')}
+                    </div>
+                `;
+            }
+            
+            updateSubmitButton();
+        }
+
+        // Event listeners
+        document.getElementById('submitBtn').addEventListener('click', submitGuess);
+        document.getElementById('resetBtn').addEventListener('click', initGame);
+        
+        document.querySelectorAll('.color-circle').forEach((circle, index) => {
+            circle.addEventListener('click', () => {
+                if (!gameOver) {
+                    selectedPosition = index;
+                    renderCurrentGuess();
+                }
+            });
+        });
+
+        // Initialize game
+        initGame();
+    </script>
+</body>
+</html>
